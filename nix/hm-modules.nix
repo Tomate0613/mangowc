@@ -7,7 +7,6 @@ self:
 }:
 let
   cfg = config.wayland.windowManager.mango;
-  selflib = import ./lib.nix lib;
   variables = lib.concatStringsSep " " cfg.systemd.variables;
   extraCommands = lib.concatStringsSep " && " cfg.systemd.extraCommands;
   systemdActivation = "${pkgs.dbus}/bin/dbus-update-activation-environment --systemd ${variables}; ${extraCommands}";
@@ -15,6 +14,7 @@ let
     ${lib.optionalString cfg.systemd.enable systemdActivation}
     ${cfg.autostart_sh}
   '';
+  writeTOML = (pkgs.formats.toml { }).generate;
 in
 {
   options = {
@@ -115,51 +115,40 @@ in
         '';
         example = lib.literalExpression ''
           {
-            # Window effects
-            blur = 1;
-            blur_optimized = 1;
-            blur_params = {
-              radius = 5;
-              num_passes = 2;
-            };
-            border_radius = 6;
-            focused_opacity = 1.0;
+            global = {
+              # Window effects
+              blur = 1;
+              blur_optimized = 1;
+              blur_params_radius = 5;
+              blur_params_num_passes = 2;
+              border_radius = 6;
+              focused_opacity = 1.0;
 
-            # Animations - use underscores for multi-part keys
-            animations = 1;
-            animation_type_open = "slide";
-            animation_type_close = "slide";
-            animation_duration_open = 400;
-            animation_duration_close = 800;
-
-            # Or use nested attrs (will be flattened with underscores)
-            animation_curve = {
-              open = "0.46,1.0,0.29,1";
-              close = "0.08,0.92,0,1";
+              # Animations - use underscores for multi-part keys
+              animations = 1;
+              animation_type_open = "slide";
+              animation_type_close = "slide";
+              animation_duration_open = 400;
+              animation_duration_close = 800;
             };
 
-            # Use lists for duplicate keys like bind and tag_rule
-            bind = [
-              "SUPER,r,reload_config"
-              "Alt,space,spawn,rofi -show drun"
-              "Alt,Return,spawn,foot"
-              "ALT,R,setkeymode,resize"  # Enter resize mode
+            bind.default = {
+              "SUPER+r" = "reload_config";
+              "Alt+space" = "spawn,rofi -show drun";
+              "Alt+Return" = "spawn,foot";
+              "ALT+R" = "setkeymode,resize"; # Enter resize mode
+            };
+
+            rule.tag_rule = [
+              {
+                id: 1;
+                layout_name: "tile";
+              }
+              {
+                id: 2;
+                layout_name: "scroller";
+              }
             ];
-
-            tag_rule = [
-              "id:1,layout_name:tile"
-              "id:2,layout_name:scroller"
-            ];
-
-            # Keymodes (submaps) for modal keybindings
-            key_mode = {
-              resize = {
-                bind = [
-                  "NONE,Left,resizewin,-10,0"
-                  "NONE,Escape,setkeymode,default"
-                ];
-              };
-            };
           }
         '';
       };
@@ -167,7 +156,7 @@ in
         type = types.lines;
         default = "";
         description = ''
-          Extra configuration lines to add to `~/.config/mango/config.conf`.
+          Extra configuration lines to add to `~/.config/mango/config.toml`.
           This is useful for advanced configurations that don't fit the structured
           settings format, or for options that aren't yet supported by the module.
         '';
@@ -175,24 +164,6 @@ in
           # Advanced config that doesn't fit structured format
           special_option = 1
         '';
-      };
-      topPrefixes = mkOption {
-        type = with lib.types; listOf str;
-        default = [ ];
-        description = ''
-          List of prefixes for attributes that should appear at the top of the config file.
-          Attributes starting with these prefixes will be sorted to the beginning.
-        '';
-        example = [ "source" ];
-      };
-      bottomPrefixes = mkOption {
-        type = with lib.types; listOf str;
-        default = [ ];
-        description = ''
-          List of prefixes for attributes that should appear at the bottom of the config file.
-          Attributes starting with these prefixes will be sorted to the end.
-        '';
-        example = [ "source" ];
       };
       autostart_sh = mkOption {
         description = ''
@@ -214,24 +185,19 @@ in
 
   config = lib.mkIf cfg.enable (
     let
-      finalConfigText =
-        # Support old string-based config during transition period
-        (
-          if builtins.isString cfg.settings then
-            cfg.settings
-          else
-            lib.optionalString (cfg.settings != { }) (
-              selflib.toMango {
-                topCommandsPrefixes = cfg.topPrefixes;
-                bottomCommandsPrefixes = cfg.bottomPrefixes;
-              } cfg.settings
-            )
-        )
-        + lib.optionalString (cfg.extraConfig != "") cfg.extraConfig
-        + lib.optionalString (cfg.autostart_sh != "") "\nexec-once=~/.config/mango/autostart.sh\n";
+      settings =
+        cfg.settings
+        // lib.optionalAttrs (cfg.autostart_sh != "") {
+          global.exec_once = "~/.config/mango/autostart.sh";
+        };
 
-      validatedConfig = pkgs.runCommand "mango-config.conf" { } ''
-        cp ${pkgs.writeText "mango-config.conf" finalConfigText} "$out"
+      validatedConfig = pkgs.runCommand "mango-config.toml" { } ''
+        cp ${writeTOML "mango-config.toml" settings} "$out"
+
+        ${lib.optionalString (cfg.extraConfig != "") ''
+          printf '\n%s\n' ${lib.escapeShellArg cfg.extraConfig} >> "$out"
+        ''}
+
         ${cfg.package}/bin/mango -c "$out" -p || exit 1
       '';
     in
@@ -246,7 +212,7 @@ in
 
       home.packages = [ cfg.package ];
       xdg.configFile = {
-        "mango/config.conf" =
+        "mango/config.toml" =
           lib.mkIf (cfg.settings != { } || cfg.extraConfig != "" || cfg.autostart_sh != "")
             {
               source = validatedConfig;
