@@ -405,6 +405,8 @@ typedef struct {
 	int32_t warpcursor;
 	int32_t drag_corner;
 	int32_t drag_warp_cursor;
+	int32_t enable_border_resize;
+	int32_t border_resize_size;
 
 	/* keyboard */
 	int32_t repeat_rate;
@@ -484,6 +486,11 @@ typedef struct {
 	uint32_t borderpx;
 	uint32_t group_bar_height;
 	uint32_t tab_bar_height;
+	int32_t always_show_group_bar;
+	int32_t group_bar_close_button_enable;
+	uint32_t group_bar_button_size;
+	uint32_t group_bar_button_margin;
+	float group_bar_button_color[4];
 	float scratchpad_width_ratio;
 	float scratchpad_height_ratio;
 	float special_dim;

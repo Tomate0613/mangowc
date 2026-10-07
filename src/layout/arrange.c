@@ -1238,21 +1238,20 @@ void pre_calculate_before_arrange(Monitor *m, bool want_animation,
 					i++;
 				}
 
-				if (!only_calculate) {
+				if (!only_calculate)
 					set_arrange_visible(m, c, want_animation);
-					client_sync_layer(c);
-				}
 			} else if (special_keep_bg_client(m, c)) {
 				c->tag_visible = true;
 				client_update_visibility(c);
 				c->animation.running = false;
 				c->animation.tagining = false;
 				c->animation.tagouting = false;
-				if (!only_calculate)
-					client_sync_layer(c);
 			} else if (!only_calculate && c != server.grab_client) {
 				set_arrange_hidden(m, c, want_animation);
 			}
+
+			if (!only_calculate)
+				client_sync_layer(c);
 		}
 
 		if (!only_calculate && c->mon == m && c->ismaximizescreen &&
@@ -1300,6 +1299,7 @@ void tag_gather_reset_slot(Monitor *m, uint32_t tag) {
 			(tr->id_wildcard || tr->id == (int32_t)tag))
 			tag_rule_apply_to_slot(m, tr, tag);
 	}
+	m->pertag->ltidxs[tag] = m->pertag->config_ltidxs[tag];
 }
 
 // move pertag state from src to dst, then reset src.
@@ -1316,6 +1316,7 @@ void tag_gather_move_pertag(Monitor *m, uint32_t dst, uint32_t src) {
 	m->pertag->scroller_ignore_proportion_single[dst] =
 		m->pertag->scroller_ignore_proportion_single[src];
 	m->pertag->dwindle_root[dst] = m->pertag->dwindle_root[src];
+	m->pertag->config_ltidxs[dst] = m->pertag->config_ltidxs[src];
 	m->pertag->ltidxs[dst] = m->pertag->ltidxs[src];
 	m->pertag->scroller_state[dst] = m->pertag->scroller_state[src];
 	tag_gather_reset_slot(m, src);

@@ -515,6 +515,10 @@ bool parse_option(Config *config, char *key, char *value, int line_number) {
 		config->drag_corner = atoi(value);
 	} else if (strcmp(key, "drag_warp_cursor") == 0) {
 		config->drag_warp_cursor = atoi(value);
+	} else if (strcmp(key, "enable_border_resize") == 0) {
+		config->enable_border_resize = atoi(value);
+	} else if (strcmp(key, "border_resize_size") == 0) {
+		config->border_resize_size = atoi(value);
 	} else if (strcmp(key, "smart_gaps") == 0) {
 		config->smartgaps = atoi(value);
 	} else if (strcmp(key, "monocle_tab_mode") == 0) {
@@ -833,6 +837,25 @@ bool parse_option(Config *config, char *key, char *value, int line_number) {
 		config->group_bar_height = atoi(value);
 	} else if (strcmp(key, "tab_bar_height") == 0) {
 		config->tab_bar_height = atoi(value);
+	} else if (strcmp(key, "always_show_group_bar") == 0) {
+		config->always_show_group_bar = atoi(value);
+	} else if (strcmp(key, "group_bar_close_button_enable") == 0) {
+		config->group_bar_close_button_enable = atoi(value);
+	} else if (strcmp(key, "group_bar_button_size") == 0) {
+		config->group_bar_button_size = atoi(value);
+	} else if (strcmp(key, "group_bar_button_margin") == 0) {
+		config->group_bar_button_margin = atoi(value);
+	} else if (strcmp(key, "group_bar_button_color") == 0) {
+		int64_t color = parse_color(value);
+		if (color == -1) {
+			mango_error(false, WLR_ERROR,
+						"Invalid group_bar_button_color "
+						"format: \033[1m\033[31m%s\033[0m\n",
+						value);
+			return false;
+		} else {
+			convert_hex_to_rgba(config->group_bar_button_color, color);
+		}
 	} else if (strcmp(key, "root_color") == 0) {
 		int64_t color = parse_color(value);
 		if (color == -1) {
@@ -2333,8 +2356,16 @@ void set_value_default() {
 	config.idleinhibit_when_fullscreen = 0;
 
 	config.borderpx = 4;
-	config.group_bar_height = 25;
-	config.tab_bar_height = 25;
+	config.group_bar_height = 33;
+	config.tab_bar_height = 33;
+	config.always_show_group_bar = 0;
+	config.group_bar_close_button_enable = 1;
+	config.group_bar_button_size = 16;
+	config.group_bar_button_margin = 4;
+	config.group_bar_button_color[0] = 0xad / 255.0f;
+	config.group_bar_button_color[1] = 0x40 / 255.0f;
+	config.group_bar_button_color[2] = 0x1f / 255.0f;
+	config.group_bar_button_color[3] = 1.0f;
 	config.overviewgappi = 5;
 	config.overviewgappo = 30;
 	config.overcircle_center_ratio = 0.5f;
@@ -2344,6 +2375,8 @@ void set_value_default() {
 	config.warpcursor = 1;
 	config.drag_corner = 3;
 	config.drag_warp_cursor = 1;
+	config.enable_border_resize = 1;
+	config.border_resize_size = 10;
 
 	config.repeat_rate = 25;
 	config.repeat_delay = 600;
@@ -2449,13 +2482,13 @@ void set_value_default() {
 	config.groupbardata.bg_color[1] = 0x1b / 255.0f;
 	config.groupbardata.bg_color[2] = 0x26 / 255.0f;
 	config.groupbardata.bg_color[3] = 1.0f;
-	config.groupbardata.focus_fg_color[0] = 0x1a / 255.0f;
-	config.groupbardata.focus_fg_color[1] = 0x1b / 255.0f;
-	config.groupbardata.focus_fg_color[2] = 0x26 / 255.0f;
+	config.groupbardata.focus_fg_color[0] = 0x9e / 255.0f;
+	config.groupbardata.focus_fg_color[1] = 0xce / 255.0f;
+	config.groupbardata.focus_fg_color[2] = 0x6a / 255.0f;
 	config.groupbardata.focus_fg_color[3] = 1.0f;
-	config.groupbardata.focus_bg_color[0] = 0x9e / 255.0f;
-	config.groupbardata.focus_bg_color[1] = 0xce / 255.0f;
-	config.groupbardata.focus_bg_color[2] = 0x6a / 255.0f;
+	config.groupbardata.focus_bg_color[0] = 0x2f / 255.0f;
+	config.groupbardata.focus_bg_color[1] = 0x3d / 255.0f;
+	config.groupbardata.focus_bg_color[2] = 0x33 / 255.0f;
 	config.groupbardata.focus_bg_color[3] = 1.0f;
 	config.groupbardata.border_color[0] = 0x3b / 255.0f;
 	config.groupbardata.border_color[1] = 0x42 / 255.0f;
@@ -2474,13 +2507,13 @@ void set_value_default() {
 	config.tabbardata.bg_color[1] = 0x1b / 255.0f;
 	config.tabbardata.bg_color[2] = 0x26 / 255.0f;
 	config.tabbardata.bg_color[3] = 1.0f;
-	config.tabbardata.focus_fg_color[0] = 0x1a / 255.0f;
-	config.tabbardata.focus_fg_color[1] = 0x1b / 255.0f;
-	config.tabbardata.focus_fg_color[2] = 0x26 / 255.0f;
+	config.tabbardata.focus_fg_color[0] = 0x7a / 255.0f;
+	config.tabbardata.focus_fg_color[1] = 0xa2 / 255.0f;
+	config.tabbardata.focus_fg_color[2] = 0xf7 / 255.0f;
 	config.tabbardata.focus_fg_color[3] = 1.0f;
-	config.tabbardata.focus_bg_color[0] = 0x7a / 255.0f;
-	config.tabbardata.focus_bg_color[1] = 0xa2 / 255.0f;
-	config.tabbardata.focus_bg_color[2] = 0xf7 / 255.0f;
+	config.tabbardata.focus_bg_color[0] = 0x2b / 255.0f;
+	config.tabbardata.focus_bg_color[1] = 0x35 / 255.0f;
+	config.tabbardata.focus_bg_color[2] = 0x50 / 255.0f;
 	config.tabbardata.focus_bg_color[3] = 1.0f;
 	config.tabbardata.border_color[0] = 0x3b / 255.0f;
 	config.tabbardata.border_color[1] = 0x42 / 255.0f;
@@ -2657,6 +2690,8 @@ void override_config(void) {
 	config.warpcursor = CLAMP_INT(config.warpcursor, 0, 1);
 	config.drag_corner = CLAMP_INT(config.drag_corner, 0, 4);
 	config.drag_warp_cursor = CLAMP_INT(config.drag_warp_cursor, 0, 1);
+	config.enable_border_resize = CLAMP_INT(config.enable_border_resize, 0, 1);
+	config.border_resize_size = CLAMP_INT(config.border_resize_size, 0, 50);
 	config.focus_cross_monitor = CLAMP_INT(config.focus_cross_monitor, 0, 1);
 	config.focusdir_only_zone_overlap =
 		CLAMP_INT(config.focusdir_only_zone_overlap, 0, 1);
@@ -2754,6 +2789,14 @@ void override_config(void) {
 	config.borderpx = CLAMP_INT(config.borderpx, 0, 200);
 	config.group_bar_height = CLAMP_INT(config.group_bar_height, 0, 500);
 	config.tab_bar_height = CLAMP_INT(config.tab_bar_height, 0, 500);
+	config.always_show_group_bar =
+		CLAMP_INT(config.always_show_group_bar, 0, 1);
+	config.group_bar_close_button_enable =
+		CLAMP_INT(config.group_bar_close_button_enable, 0, 1);
+	config.group_bar_button_size =
+		CLAMP_INT(config.group_bar_button_size, 4, 64);
+	config.group_bar_button_margin =
+		CLAMP_INT(config.group_bar_button_margin, 0, 50);
 	config.smartgaps = CLAMP_INT(config.smartgaps, 0, 1);
 	config.blur = CLAMP_INT(config.blur, 0, 1);
 	config.blur_layer = CLAMP_INT(config.blur_layer, 0, 1);
