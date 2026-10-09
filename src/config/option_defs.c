@@ -246,6 +246,10 @@ bool parse_option(Config *config, char *key, char *value, int line_number) {
 		config->no_border_when_single = atoi(value);
 	} else if (strcmp(key, "no_radius_when_single") == 0) {
 		config->no_radius_when_single = atoi(value);
+	} else if (strcmp(key, "monocle_no_border") == 0) {
+		config->monocle_no_border = atoi(value);
+	} else if (strcmp(key, "monocle_no_gap") == 0) {
+		config->monocle_no_gap = atoi(value);
 	} else if (strcmp(key, "snap_distance") == 0) {
 		config->snap_distance = atoi(value);
 	} else if (strcmp(key, "enable_floating_snap") == 0) {
@@ -1481,7 +1485,14 @@ bool parse_option(Config *config, char *key, char *value, int line_number) {
 					rule->isfakefullscreen = atoi(val);
 				} else if (strcmp(key, "global_key_binding") == 0) {
 					char mod_str[256], keysym_str[256];
-					sscanf(val, "%255[^-]-%255[a-zA-Z]", mod_str, keysym_str);
+					if (sscanf(val, "%255[^-]-%255s", mod_str, keysym_str) !=
+						2) {
+						mango_error(false, WLR_ERROR,
+									"Invalid globalkeybinding: "
+									"\033[1m\033[31m%s\033[0m\n",
+									val);
+						return false;
+					}
 					trim_whitespace(mod_str);
 					trim_whitespace(keysym_str);
 					rule->globalkeybinding.mod = parse_mod(mod_str);
@@ -2341,6 +2352,8 @@ void set_value_default() {
 	config.auto_reload_config = 1;
 	config.no_border_when_single = 0;
 	config.no_radius_when_single = 0;
+	config.monocle_no_border = 0;
+	config.monocle_no_gap = 0;
 	config.snap_distance = 30;
 	config.drag_tile_to_tile = 1;
 	config.drag_tile_small = 1;
@@ -2709,6 +2722,8 @@ void override_config(void) {
 		CLAMP_INT(config.no_border_when_single, 0, 1);
 	config.no_radius_when_single =
 		CLAMP_INT(config.no_radius_when_single, 0, 1);
+	config.monocle_no_border = CLAMP_INT(config.monocle_no_border, 0, 1);
+	config.monocle_no_gap = CLAMP_INT(config.monocle_no_gap, 0, 1);
 	config.cursor_hide_timeout =
 		CLAMP_INT(config.cursor_hide_timeout, 0, 36000);
 	config.cursor_hide_on_keypress =

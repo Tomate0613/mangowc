@@ -17,6 +17,7 @@
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xdg_shell.h>
+#include <wlr/util/edges.h>
 #ifdef XWAYLAND
 #include <wlr/xwayland.h>
 #endif
@@ -1506,7 +1507,7 @@ void client_set_pending_state(Client *c) {
 	client_commit(c);
 	c->dirty = true;
 }
-void resize_apply(Client *c, struct wlr_box geo, ResizeOpts opts) {
+void resize(Client *c, struct wlr_box geo, ResizeOpts opts) {
 	if (!c || !c->mon || !client_surface(c)->mapped)
 		return;
 
@@ -1532,8 +1533,15 @@ void resize_apply(Client *c, struct wlr_box geo, ResizeOpts opts) {
 	}
 
 	if (!c->no_size_hint && !c->ismaximizescreen && !c->isfullscreen &&
-		c->isfloating)
+		c->isfloating) {
+		int32_t anchor_right = c->geom.x + c->geom.width;
+		int32_t anchor_bottom = c->geom.y + c->geom.height;
 		client_set_size_bound(c);
+		if (opts.drag_edge & WLR_EDGE_LEFT)
+			c->geom.x = anchor_right - c->geom.width;
+		if (opts.drag_edge & WLR_EDGE_TOP)
+			c->geom.y = anchor_bottom - c->geom.height;
+	}
 
 	if (!c->is_pending_open_animation)
 		c->animation.begin_fade_in = false;
@@ -1582,8 +1590,9 @@ void resize_apply(Client *c, struct wlr_box geo, ResizeOpts opts) {
 	}
 
 	if (!c->mon->isoverview)
-		c->configure_serial = client_set_size(c, c->geom.width - 2 * c->bw,
-											  c->geom.height - 2 * c->bw);
+		c->configure_serial =
+			client_set_size(c, c->geom.width - 2 * c->bw,
+							c->geom.height - 2 * c->bw, opts.force_configure);
 
 	if (c->configure_serial != 0)
 		c->mon->resizing_count_pending++;
@@ -1718,10 +1727,6 @@ void client_set_unfocused_opacity_animation(Client *c) {
 
 	client_start_focus_animation(c, false);
 }
-void resize(Client *c, struct wlr_box geo, int32_t interact) {
-	resize_apply(c, geo, (ResizeOpts){.interact = interact});
-}
-
 void client_set_focused_opacity_animation(Client *c) {
 	wlr_scene_node_lower_to_bottom(&c->border->node);
 

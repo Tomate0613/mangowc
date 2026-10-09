@@ -349,6 +349,8 @@ typedef struct {
 	int32_t view_current_to_back;
 	int32_t no_border_when_single;
 	int32_t no_radius_when_single;
+	int32_t monocle_no_border;
+	int32_t monocle_no_gap;
 	int32_t snap_distance;
 	int32_t enable_floating_snap;
 	int32_t float_full_to_top;
@@ -611,6 +613,8 @@ bool monitor_matches_rule(Monitor *m, const ConfigMonitorRule *rule);
 void sync_workspaces_to_tag_num(Monitor *m);
 
 void trim_whitespace(char *str);
+
+void strip_quotes(char *str);
 
 void remove_comment(char *str);
 

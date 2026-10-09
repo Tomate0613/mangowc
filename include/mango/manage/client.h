@@ -5,6 +5,7 @@
 #include "mango/common/types.h"
 #include "mango/config/parse.h"
 #include "mango/draw/dim-node.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -112,12 +113,8 @@ struct Client {
 	struct wlr_box xwl_clip; /* Most recent logical clip area of the XWayland
 								root surface. */
 	bool xwl_clip_active;	 /* Whether source_box clipping is active. */
-	/*
-	 * X11 configure deduplication: until the client acks, surface->current is
-	 * not updated, so repeated arrange calls resend identical configures and
-	 * force clients to re-render/re-upload. Record the most recently requested
-	 * physical size/position here and skip configure if it has not changed.
-	 */
+	/* Last physical box asked from XWayland, to skip identical repeats. The
+	 * record is dropped when the client asks to change itself or on (re)map. */
 	int32_t xwl_req_x, xwl_req_y, xwl_req_w, xwl_req_h;
 	bool xwl_req_valid;
 #endif
@@ -317,7 +314,8 @@ void client_set_scale(struct wlr_surface *s, float scale);
 void client_update_xwayland_clip(Client *c, struct wlr_box *clip);
 /* Syncs the dest_size (logical size) of the XWayland root surface. */
 void client_update_xwayland_dest_size(Client *c);
-uint32_t client_set_size(Client *c, uint32_t width, uint32_t height);
+uint32_t client_set_size(Client *c, uint32_t width, uint32_t height,
+						 bool force_configure);
 void client_set_minimized(Client *c, bool minimize_window);
 void client_set_maximized(Client *c, bool maximized);
 void client_set_tiled(Client *c, uint32_t edges);
