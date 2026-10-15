@@ -202,18 +202,18 @@ void set_layer_dir_animaiton(LayerSurface *l, struct wlr_box *geo) {
 	switch (slide_direction) {
 	case UP:
 		geo->x = l->geom.x;
-		geo->y = usable_area.y - l->geom.height;
+		geo->y = l->mon->m.y - l->geom.height;
 		break;
 	case DOWN:
 		geo->x = l->geom.x;
-		geo->y = usable_area.y + usable_area.height;
+		geo->y = l->mon->m.y + l->mon->m.height;
 		break;
 	case LEFT:
-		geo->x = usable_area.x - l->geom.width;
+		geo->x = l->mon->m.x - l->geom.width;
 		geo->y = l->geom.y;
 		break;
 	case RIGHT:
-		geo->x = usable_area.x + usable_area.width;
+		geo->x = l->mon->m.x + l->mon->m.width;
 		geo->y = l->geom.y;
 		break;
 	default:
@@ -416,7 +416,7 @@ void layer_animation_next_tick(LayerSurface *l) {
 							   1.0f);
 
 	if (config.animation_fade_in) {
-		if (config.blur && !l->no_blur && !config.blur_optimized) {
+		if (config.blur && !l->no_blur && !layer_blur_uses_wallpaper(l)) {
 			wlr_scene_blur_set_strength(l->blur, opacity);
 			wlr_scene_blur_set_alpha(l->blur, opacity);
 		}

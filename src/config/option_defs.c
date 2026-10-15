@@ -523,6 +523,8 @@ bool parse_option(Config *config, char *key, char *value, int line_number) {
 		config->smartgaps = atoi(value);
 	} else if (strcmp(key, "monocle_tab_mode") == 0) {
 		config->monocle_tab_mode = atoi(value);
+	} else if (strcmp(key, "monocle_right_button_close") == 0) {
+		config->monocle_right_button_close = atoi(value);
 	} else if (strcmp(key, "deck_tab_mode") == 0) {
 		config->deck_tab_mode = atoi(value);
 	} else if (strcmp(key, "repeat_rate") == 0) {
@@ -1118,6 +1120,29 @@ bool parse_option(Config *config, char *key, char *value, int line_number) {
 						"Monitor rule "
 						"must have at least one of the following "
 						"options: name, make, model, serial\n");
+			return false;
+		}
+
+		bool has_width = rule->width > 0;
+		bool has_height = rule->height > 0;
+		bool has_refresh = rule->refresh > 0.0f;
+		if (has_width != has_height || has_width != has_refresh) {
+			mango_error(false, WLR_ERROR,
+						"Monitor rule must set width, height and refresh "
+						"together\n");
+			return false;
+		}
+
+		if (rule->custom && !has_width) {
+			mango_error(false, WLR_ERROR,
+						"Monitor rule with custom must set width, height and "
+						"refresh\n");
+			return false;
+		}
+
+		if ((rule->x == INT32_MAX) != (rule->y == INT32_MAX)) {
+			mango_error(false, WLR_ERROR,
+						"Monitor rule must set x and y together\n");
 			return false;
 		}
 
@@ -2302,6 +2327,7 @@ void set_value_default() {
 	config.hotarea_disable_on_fullscreen = 1;
 	config.smartgaps = 0;
 	config.monocle_tab_mode = 1;
+	config.monocle_right_button_close = 0;
 	config.deck_tab_mode = 1;
 	config.sloppyfocus = 1;
 	config.gappih = 5;
@@ -2366,7 +2392,7 @@ void set_value_default() {
 	config.group_bar_height = 33;
 	config.tab_bar_height = 33;
 	config.always_show_group_bar = 0;
-	config.group_bar_close_button_enable = 1;
+	config.group_bar_close_button_enable = 0;
 	config.group_bar_button_size = 16;
 	config.group_bar_button_margin = 4;
 	config.group_bar_button_color[0] = 0xad / 255.0f;
@@ -2485,17 +2511,17 @@ void set_value_default() {
 	config.groupbardata.fg_color[1] = 0xca / 255.0f;
 	config.groupbardata.fg_color[2] = 0xf5 / 255.0f;
 	config.groupbardata.fg_color[3] = 1.0f;
-	config.groupbardata.bg_color[0] = 0x1a / 255.0f;
-	config.groupbardata.bg_color[1] = 0x1b / 255.0f;
-	config.groupbardata.bg_color[2] = 0x26 / 255.0f;
+	config.groupbardata.bg_color[0] = 0x1d / 255.0f;
+	config.groupbardata.bg_color[1] = 0x20 / 255.0f;
+	config.groupbardata.bg_color[2] = 0x21 / 255.0f;
 	config.groupbardata.bg_color[3] = 1.0f;
 	config.groupbardata.focus_fg_color[0] = 0x9e / 255.0f;
 	config.groupbardata.focus_fg_color[1] = 0xce / 255.0f;
 	config.groupbardata.focus_fg_color[2] = 0x6a / 255.0f;
 	config.groupbardata.focus_fg_color[3] = 1.0f;
-	config.groupbardata.focus_bg_color[0] = 0x2f / 255.0f;
-	config.groupbardata.focus_bg_color[1] = 0x3d / 255.0f;
-	config.groupbardata.focus_bg_color[2] = 0x33 / 255.0f;
+	config.groupbardata.focus_bg_color[0] = 0x3c / 255.0f;
+	config.groupbardata.focus_bg_color[1] = 0x38 / 255.0f;
+	config.groupbardata.focus_bg_color[2] = 0x36 / 255.0f;
 	config.groupbardata.focus_bg_color[3] = 1.0f;
 	config.groupbardata.border_color[0] = 0x3b / 255.0f;
 	config.groupbardata.border_color[1] = 0x42 / 255.0f;
@@ -2510,17 +2536,17 @@ void set_value_default() {
 	config.tabbardata.fg_color[1] = 0xca / 255.0f;
 	config.tabbardata.fg_color[2] = 0xf5 / 255.0f;
 	config.tabbardata.fg_color[3] = 1.0f;
-	config.tabbardata.bg_color[0] = 0x1a / 255.0f;
-	config.tabbardata.bg_color[1] = 0x1b / 255.0f;
-	config.tabbardata.bg_color[2] = 0x26 / 255.0f;
+	config.tabbardata.bg_color[0] = 0x1d / 255.0f;
+	config.tabbardata.bg_color[1] = 0x20 / 255.0f;
+	config.tabbardata.bg_color[2] = 0x21 / 255.0f;
 	config.tabbardata.bg_color[3] = 1.0f;
 	config.tabbardata.focus_fg_color[0] = 0x7a / 255.0f;
 	config.tabbardata.focus_fg_color[1] = 0xa2 / 255.0f;
 	config.tabbardata.focus_fg_color[2] = 0xf7 / 255.0f;
 	config.tabbardata.focus_fg_color[3] = 1.0f;
-	config.tabbardata.focus_bg_color[0] = 0x2b / 255.0f;
-	config.tabbardata.focus_bg_color[1] = 0x35 / 255.0f;
-	config.tabbardata.focus_bg_color[2] = 0x50 / 255.0f;
+	config.tabbardata.focus_bg_color[0] = 0x3c / 255.0f;
+	config.tabbardata.focus_bg_color[1] = 0x38 / 255.0f;
+	config.tabbardata.focus_bg_color[2] = 0x36 / 255.0f;
 	config.tabbardata.focus_bg_color[3] = 1.0f;
 	config.tabbardata.border_color[0] = 0x3b / 255.0f;
 	config.tabbardata.border_color[1] = 0x42 / 255.0f;
@@ -2714,6 +2740,8 @@ void override_config(void) {
 		CLAMP_INT(config.no_radius_when_single, 0, 1);
 	config.monocle_no_border = CLAMP_INT(config.monocle_no_border, 0, 1);
 	config.monocle_no_gap = CLAMP_INT(config.monocle_no_gap, 0, 1);
+	config.monocle_right_button_close =
+		CLAMP_INT(config.monocle_right_button_close, 0, 1);
 	config.cursor_hide_timeout =
 		CLAMP_INT(config.cursor_hide_timeout, 0, 36000);
 	config.cursor_hide_on_keypress =

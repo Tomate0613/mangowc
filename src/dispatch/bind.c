@@ -19,6 +19,7 @@
 #include "mango/manage/client.h"
 #include "mango/manage/misc.h"
 #include "mango/manage/monitor.h"
+#include "mango/manage/tab.h"
 #include "mango/overview/overview.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -245,6 +246,14 @@ int32_t focus_direction(const Arg *arg) {
 
 	if (!server.selected_monitor)
 		return 0;
+
+	Client *sel = server.selected_monitor->sel;
+	if (is_monocle_layout(server.selected_monitor) && sel && !sel->isfloating &&
+		(arg->i == LEFT || arg->i == RIGHT)) {
+		Arg a = *arg;
+		a.i = (arg->i == LEFT) ? PREV : NEXT;
+		return focus_stack(&a);
+	}
 
 	Client *c = NULL;
 	c = direction_select(arg);
@@ -700,6 +709,33 @@ int32_t kill_client(const Arg *arg) {
 			pending_kill_client(c);
 		}
 	}
+	return 0;
+}
+
+int32_t smart_kill_client(const Arg *arg) {
+	Client *c =
+		arg->tc
+			? arg->tc
+			: (server.selected_monitor ? server.selected_monitor->sel : NULL);
+	if (!c || !c->mon)
+		return 0;
+
+	if (client_only_in_one_tag(c)) {
+		pending_kill_client(c);
+		return 0;
+	}
+
+	uint32_t view_tags = c->mon->tagset[c->mon->seltags] & TAGMASK;
+	uint32_t remaining_tags = c->tags & ~view_tags;
+	if (!remaining_tags) {
+		pending_kill_client(c);
+		return 0;
+	}
+
+	c->tags = remaining_tags;
+	client_reparent_group(c);
+	client_focus(client_focus_top(server.selected_monitor), 1);
+	arrange(c->mon, false, false);
 	return 0;
 }
 
@@ -1937,7 +1973,7 @@ int32_t toggle_view(const Arg *arg) {
 		client_focus(client_focus_top(server.selected_monitor), 1);
 		wl_list_for_each(c, &server.clients, link) {
 			if (VISIBLEON(c, server.selected_monitor) && ISTILED(c)) {
-				set_size_per(server.selected_monitor, c);
+				set_size_per(server.selected_monitor, c, true);
 			}
 		}
 		arrange(server.selected_monitor, false, false);
@@ -2628,13 +2664,20 @@ int32_t toggle_all_floating(const Arg *arg) {
 			if (c->isfloating && !should_floating) {
 				c->old_master_inner_per = 0.0f;
 				c->old_stack_inner_per = 0.0f;
-				set_size_per(server.selected_monitor, c);
+				set_size_per(server.selected_monitor, c, false);
 			}
 
 			if (c->isfloating != should_floating) {
 				client_set_floating(c, should_floating);
 			}
 		}
+	}
+
+	wl_list_for_each_reverse(c, &server.focus_stack, flink) {
+		if (!VISIBLEON(c, server.selected_monitor))
+			continue;
+		client_raise_group(c);
+		client_raise_tab(c);
 	}
 	return 0;
 }
@@ -2727,15 +2770,7 @@ int32_t focus_by_id(const Arg *arg) {
 	if (!server.selected_monitor || !arg->tc)
 		return 0;
 
-	Client *c = arg->tc;
-
-	if (c->swallowdby)
-		return 0;
-
-	if (client_is_group_member(c))
-		client_focus_group_member(c);
-
-	client_active(c);
+	client_active(arg->tc);
 	return 0;
 }
 

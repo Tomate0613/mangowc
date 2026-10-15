@@ -144,6 +144,11 @@ bool is_centertile_layout(Monitor *m) {
 	return false;
 }
 
+bool is_overcircle_mode(const Monitor *m) {
+	return m && m->isoverview && m->ov_tab_layout && !m->is_jump_mode &&
+		   !m->ov_normal_mode;
+}
+
 void special_sync_top_layer(bool special_active) {
 	if (special_active) {
 		wlr_scene_node_reparent(&server.layers[LyrTop]->node,
@@ -341,6 +346,17 @@ Monitor *device_target_monitor(struct wlr_input_device *device) {
 	}
 
 	return server.selected_monitor;
+}
+
+bool blur_layer_on_wallpaper(uint32_t layer) {
+	switch (layer) {
+	case LyrBottom:
+	case LyrTile:
+	case LyrMaximize:
+		return true;
+	default:
+		return false;
+	}
 }
 
 bool mango_scene_output_commit(struct wlr_scene_output *scene_output,
@@ -564,8 +580,10 @@ bool apply_rule_to_state(Monitor *m, const ConfigMonitorRule *rule,
 					m->wlr_output->name);
 
 	if (rule->width > 0 && rule->height > 0 && rule->refresh > 0) {
-		struct wlr_output_mode *internal_mode = get_nearest_output_mode(
-			m->wlr_output, rule->width, rule->height, rule->refresh);
+		struct wlr_output_mode *internal_mode = NULL;
+		if (!rule->custom)
+			internal_mode = get_nearest_output_mode(
+				m->wlr_output, rule->width, rule->height, rule->refresh);
 		if (internal_mode) {
 			wlr_output_state_set_mode(state, internal_mode);
 			mode_set = true;
@@ -1145,7 +1163,7 @@ void handle_output_layout_change(struct wl_listener *listener, void *data) {
 			if (c->tags == 0 && !c->is_in_scratchpad) {
 				c->tags = server.selected_monitor
 							  ->tagset[server.selected_monitor->seltags];
-				set_size_per(server.selected_monitor, c);
+				set_size_per(server.selected_monitor, c, false);
 			}
 		}
 		client_focus(client_focus_top(server.selected_monitor), 1);

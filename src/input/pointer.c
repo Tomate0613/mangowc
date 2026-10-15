@@ -993,7 +993,7 @@ static void client_begin_drag_float(Client *c) {
 	c->drag_tile_float_backup_geom = c->float_geom;
 	c->old_stack_inner_per = 0.0f;
 	c->old_master_inner_per = 0.0f;
-	set_size_per(c->mon, c);
+	set_size_per(c->mon, c, false);
 }
 
 bool pointer_begin_move_resize(Client *gc, uint32_t mode, double x, double y,
@@ -1448,7 +1448,7 @@ void pointer_focus(Client *c, struct wlr_surface *surface, double sx, double sy,
 
 	if (config.sloppyfocus && !server.start_drag_window && c && time &&
 		c->scene && c->scene->node.enabled &&
-		(!c->mon || !c->mon->isoverview) && !c->animation.tagining &&
+		(!c->mon || !is_overcircle_mode(c->mon)) && !c->animation.tagining &&
 		(surface != server.seat->pointer_state.focused_surface ||
 		 (server.selected_monitor && server.selected_monitor->isoverview &&
 		  server.selected_monitor->sel != c)) &&
@@ -1815,6 +1815,13 @@ bool pointer_process_button_press(struct wlr_pointer_button_event *event) {
 			return true;
 		}
 
+		/* Optionally close the clicked tab with a right click. */
+		if (bar && bar->is_tab && bar->node_data &&
+			event->button == BTN_RIGHT && config.monocle_right_button_close) {
+			pending_kill_client((Client *)bar->node_data);
+			return true;
+		}
+
 		// handle click on tile node
 		client_handle_decorate_click(bar);
 
@@ -1832,6 +1839,12 @@ bool pointer_process_button_press(struct wlr_pointer_button_event *event) {
 				return true;
 			}
 		}
+
+		/* Don't send the press to the surface that a bar/tab click switched
+		 * to. The seat drops its release too, so the client never sees a
+		 * click. */
+		if (bar)
+			return true;
 
 		if (event->button == BTN_LEFT && c && !bar &&
 			config.enable_border_resize) {
