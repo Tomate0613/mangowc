@@ -19,6 +19,7 @@
 #include "mango/manage/misc.h"
 #include "mango/manage/monitor.h"
 #include "mango/manage/tab.h"
+#include "mango/manage/title-message-bar.h"
 #include "mango/manage/xwayland_primary.h"
 #include "mango/overview/overview.h"
 #include "mango/switcher/switcher.h"
@@ -1669,8 +1670,6 @@ void client_apply_rules(Client *c, Monitor **rule_mon, uint32_t *rule_tags) {
 			c->geom = c->float_geom.width > 0 && c->float_geom.height > 0
 						  ? c->float_geom
 						  : c->geom;
-			if (!c->no_size_hint)
-				client_set_size_bound(c);
 		}
 	}
 
@@ -2764,6 +2763,7 @@ void handle_client_set_title(struct wl_listener *listener, void *data) {
 	const char *title = client_get_title(c);
 	client_update_group_bar_title(c);
 	client_update_tab_bar_title(c);
+	title_message_bar_update_title(c);
 
 	struct wayland_string wayland_title;
 	const char *clamped_title = wayland_string_set(&wayland_title, title);
@@ -3649,15 +3649,13 @@ void show_scratchpad(Client *c) {
 		c->bw = c->no_border ? 0 : config.borderpx;
 	}
 
-	/* return if fullscreen */
 	if (!c->isfloating) {
 		client_set_floating(c, 1);
-		c->geom.width = c->iscustomsize
-							? c->float_geom.width
-							: c->mon->w.width * config.scratchpad_width_ratio;
-		c->geom.height =
-			c->iscustomsize ? c->float_geom.height
-							: c->mon->w.height * config.scratchpad_height_ratio;
+	}
+
+	if (!c->iscustomsize) {
+		c->geom.width = c->mon->w.width * config.scratchpad_width_ratio;
+		c->geom.height = c->mon->w.height * config.scratchpad_height_ratio;
 		// Recomputes the centered coordinates.
 		c->float_geom = c->geom = c->animainit_geom = c->animation.current =
 			client_center_geometry(c, c->mon, c->geom, 0, 0);
