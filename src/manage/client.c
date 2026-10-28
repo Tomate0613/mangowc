@@ -6,6 +6,7 @@
 #include "mango/common/server.h"
 #include "mango/common/util.h"
 #include "mango/dispatch/bind.h"
+#include "mango/draw/title-message-bar.h"
 #include "mango/ext-protocol/foreign-toplevel.h"
 #include "mango/ext-protocol/text-input.h"
 #include "mango/input/keyboard.h"
@@ -19,7 +20,6 @@
 #include "mango/manage/misc.h"
 #include "mango/manage/monitor.h"
 #include "mango/manage/tab.h"
-#include "mango/manage/title-message-bar.h"
 #include "mango/manage/xwayland_primary.h"
 #include "mango/overview/overview.h"
 #include "mango/switcher/switcher.h"
@@ -48,6 +48,7 @@
 #include <wlr/types/wlr_xdg_activation_v1.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
+#include <wlr/util/transform.h>
 #ifdef XWAYLAND
 #include <X11/Xlib.h>
 #include <wlr/xwayland.h>
@@ -204,6 +205,33 @@ void client_get_clip(Client *c, struct wlr_box *clip) {
 
 	clip->x = c->surface.xdg->geometry.x;
 	clip->y = c->surface.xdg->geometry.y;
+}
+
+void client_surface_get_source_box(struct wlr_surface *surface,
+								   const struct wlr_fbox *surface_box,
+								   struct wlr_fbox *source_box) {
+	const struct wlr_surface_state *state = &surface->current;
+	wlr_surface_get_buffer_source_box(surface, source_box);
+	if (wlr_fbox_empty(surface_box) || state->width <= 0 ||
+		state->height <= 0) {
+		return;
+	}
+
+	int buffer_width = state->buffer_width;
+	int buffer_height = state->buffer_height;
+	wlr_fbox_transform(source_box, source_box, state->transform, buffer_width,
+					   buffer_height);
+	wlr_output_transform_coords(state->transform, &buffer_width,
+								&buffer_height);
+
+	source_box->x += surface_box->x * source_box->width / state->width;
+	source_box->y += surface_box->y * source_box->height / state->height;
+	source_box->width *= surface_box->width / state->width;
+	source_box->height *= surface_box->height / state->height;
+
+	wlr_fbox_transform(source_box, source_box,
+					   wlr_output_transform_invert(state->transform),
+					   buffer_width, buffer_height);
 }
 
 void client_get_geometry(Client *c, struct wlr_box *geom) {
@@ -2797,6 +2825,7 @@ void handle_client_set_title(struct wl_listener *listener, void *data) {
 	if (c == client_focus_top(c->mon))
 		printstatus(IPC_WATCH_ARRANGGE);
 }
+
 void handle_client_activation_request(struct wl_listener *listener,
 									  void *data) {
 	struct wlr_xdg_activation_v1_request_activate_event *event = data;
@@ -2808,10 +2837,15 @@ void handle_client_activation_request(struct wl_listener *listener,
 
 	if (config.focus_on_activate && !c->istagsilent &&
 		c != server.selected_monitor->sel) {
-		if (!(c->mon == server.selected_monitor &&
-			  c->tags & c->mon->tagset[c->mon->seltags]))
-			client_view_on_monitor(&(Arg){.ui = c->tags}, true, c->mon, true);
-		client_focus(c, 1);
+		if (c->tags & TAG0_MASK) {
+			if (is_special_active(c->mon)) {
+				client_focus(c, 1);
+			} else {
+				toggle_special_tag_mon(c->mon);
+			}
+			return;
+		}
+		client_active(c);
 	} else if (c != client_focus_top(server.selected_monitor)) {
 		c->isurgent = 1;
 		if (client_surface(c)->mapped)
@@ -3079,6 +3113,19 @@ void client_active(Client *c) {
 
 	if (!c->mon && !client_group_swap_focus(c))
 		return;
+
+	if (c->is_in_scratchpad) {
+		bool visible =
+			SCRATCHPAD_SHOWN(c) && (c->tags & c->mon->tagset[c->mon->seltags]);
+		if (visible) {
+			client_focus(c, 1);
+		} else if (c->isnamedscratchpad) {
+			apply_named_scratchpad(c);
+		} else {
+			switch_scratchpad_client_state(c);
+		}
+		return;
+	}
 
 	if (c->isminimized) {
 		c->is_in_scratchpad = 0;
@@ -4760,6 +4807,20 @@ void handle_xwayland_surface_request_activate(struct wl_listener *listener,
 
 	if (c && c->swallowdby)
 		return;
+
+	if (c->tags & TAG0_MASK) {
+		if (is_special_active(c->mon)) {
+			client_focus(c, 1);
+		} else {
+			toggle_special_tag_mon(c->mon);
+		}
+		return;
+	}
+
+	if (c->is_in_scratchpad) {
+		client_active(c);
+		return;
+	}
 
 	if (c->isminimized) {
 		client_pending_minimized_state(c, 0);
